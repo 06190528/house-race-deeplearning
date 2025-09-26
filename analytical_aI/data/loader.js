@@ -5,11 +5,11 @@ const path = require("path");
  * 指定されたディレクトリから全てのレースデータを読み込み、
  * raceIdを各レコードに追加して単一の配列に変換する関数。
  *
- * @param {string} relativeDataPath - 現在のファイルから見た、データディレクトリへの相対パス
+ * @param {string} dataPath - 現在のファイルから見た、データディレクトリへの相対パス
  * @returns {Promise<Object[]>} 全ての馬の成績データを含む単一の配列
  */
-const loadAndProcessRaceData = async (relativeDataPath) => {
-  const dataDir = path.join(__dirname, relativeDataPath);
+const loadAndProcessRaceData = async (dataPath) => {
+  const dataDir = dataPath;
   console.log(`📂 Reading data from: ${dataDir}`);
 
   const allProcessedData = [];
@@ -43,3 +43,5 @@ const loadAndProcessRaceData = async (relativeDataPath) => {
   );
   return allProcessedData;
 };
+
+module.exports = { loadAndProcessRaceData };

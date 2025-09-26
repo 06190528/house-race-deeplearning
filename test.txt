@@ -1,0 +1,18 @@
+1. Loading data...
+📂 Reading data from: /Users/atsukikitano/pj/house-race-prediction/functions/scrape/racedata
+✅ Successfully loaded and processed data for 22646 horses.
+2. Preprocessing data...
+> Found 22007 valid horse data entries.
+3. Starting backtest to find the best parameters...
+✨ New Best ROI: 66.10% | Params (A:1, B:1, C:0.8)
+✨ New Best ROI: 66.39% | Params (A:6, B:1, C:0.8)
+✨ New Best ROI: 66.74% | Params (A:11, B:1, C:0.8)
+✨ New Best ROI: 66.76% | Params (A:61, B:1, C:0.8)
+✨ New Best ROI: 67.56% | Params (A:66, B:1, C:0.8)
+✨ New Best ROI: 67.64% | Params (A:86, B:1, C:0.8)
+
+--- 🚀 All tasks completed! ---
+Best Parameters Found:
+{ weightA: 86, weightB: 1, thresholdC: '0.8' }
+Best Backtest Result:
+{ roi: '67.64%', investment: 419500, return: 283760 }
