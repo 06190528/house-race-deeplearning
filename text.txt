@@ -1,0 +1,158 @@
+手順
+
+日付を取得する
+https://db.netkeiba.com/race/list/20210530/
+
+axiosでhttpリクエスト送信アクセスして、中から
+202105021201や202105021202や202105021203といったrace_idを取得し配列に入れる。(これを関数かするfetchDatesRaceIds)
+
+<div class="race_list fc">
+<dl class="race_top_hold_list">
+<dt class="race_top_hold_data">
+<p>
+東京
+</p>
+</dt>
+<dd>
+<ul>
+<li>
+<dl class="race_top_data_info fc">
+<dt>1R</dt>
+<dd>
+<a href="/race/202105021201/" title="3歳未勝利">3歳未勝利</a><br/>
+<div>
+ダ1600m<br />
+<a href="/race/movie/202105021201"><img src="/style/netkeiba.ja/image/icon_douga.png" border="0" />レース映像</a><img src="/style/netkeiba.ja/image/ico_premium.gif" /></a>
+</div>
+</dd>
+</dl>
+</li><li>
+<dl class="race_top_data_info fc">
+<dt>2R</dt>
+<dd>
+<a href="/race/202105021202/" title="3歳未勝利">3歳未勝利</a><br/>
+<div>
+ダ1400m<br />
+<a href="/race/movie/202105021202"><img src="/style/netkeiba.ja/image/icon_douga.png" border="0" />レース映像</a><img src="/style/netkeiba.ja/image/ico_premium.gif" /></a>
+</div>
+</dd>
+</dl>
+</li><li>
+<dl class="race_top_data_info fc">
+<dt>3R</dt>
+<dd>
+<a href="/race/202105021203/" title="3歳未勝利">3歳未勝利</a><br/>
+<div>
+ダ2100m<br />
+<a href="/race/movie/202105021203"><img src="/style/netkeiba.ja/image/icon_douga.png" border="0" />レース映像</a><img src="/style/netkeiba.ja/image/ico_premium.gif" /></a>
+</div>
+</dd>
+</dl>
+</li><li>
+<dl class="race_top_data_info fc">
+<dt>4R</dt>
+<dd>
+<a href="/race/202105021204/" title="3歳未勝利">3歳未勝利</a><br/>
+<div>
+芝1600m<br />
+<a href="/race/movie/202105021204"><img src="/style/netkeiba.ja/image/icon_douga.png" border="0" />レース映像</a><img src="/style/netkeiba.ja/image/ico_premium.gif" /></a>
+</div>
+</dd>
+</dl>
+
+
+
+
+
+
+次にその配列からhttps://db.netkeiba.com/race/202105021201/のようなURLを生成して、少し待ってからhttpリクエストを送る。(これを関数かする fetchRaceData)
+以下のようなデータが取得できるのでデータをセットして配列に入れる。それを返す。
+(データ内容は着
+順	枠
+番	馬
+番	馬名	性齢	斤量	騎手	タイム	着差	ﾀｲﾑ
+指数
+	通過	上り	単勝	人
+気	馬体重	調教
+ﾀｲﾑ
+	厩舎
+ｺﾒﾝﾄ
+	備考
+	調教師	馬主	賞金
+(万円)
+<th class="" nowrap="nowrap">調教<br />ﾀｲﾑ<br /><img src="https://cdn.netkeiba.com/img.db//style/netkeiba.ja/image/ico_premium.gif" width="16" height="16" /></th>
+<th class="" nowrap="nowrap">厩舎<br />ｺﾒﾝﾄ<br /><img src="https://cdn.netkeiba.com/img.db//style/netkeiba.ja/image/ico_premium.gif" width="16" height="16" /></th>
+<th class="" nowrap="nowrap">備考<br /><img src="https://cdn.netkeiba.com/img.db//style/netkeiba.ja/image/ico_premium.gif" width="16" height="16" /></th>
+</diary_snap_cut>
+<th nowrap="nowrap">調教師</th>
+<diary_snap_cut>
+<th nowrap="nowrap">馬主</th>
+<th nowrap="nowrap">賞金<br />(万円)</th>
+</diary_snap_cut>
+</tr>
+
+<tr>
+<td class="txt_r" nowrap="nowrap">1</td>
+<td class="w6ml" align="right" nowrap="nowrap"><span>6</span></td>
+<td class="txt_r" nowrap="nowrap">11</td>
+<td class="txt_l" nowrap="nowrap">
+<a href="/horse/2018105452/" title="ルコルセール" id="umalink_202105021201">ルコルセール</a>
+
+</td>
+<td class="txt_c" nowrap="nowrap">牡3</td>
+<td class="txt_c" nowrap="nowrap">56</td>
+<td class="txt_l" nowrap="nowrap">
+<a href="/jockey/result/recent/01126/" title="松山弘平">松山弘平</a>
+
+</td>
+<td class="txt_r" nowrap="nowrap">1:37.1</td>
+<td class="txt_c" nowrap="nowrap"></td>
+
+<diary_snap_cut>
+<td class="speed_index bml " nowrap="nowrap">
+<div class="txt_c">
+<a href="https://www.netkeiba.com/premium/?service=p13" id="a_monthly_goods_link_01" data-theme="07003">**</a>
+</div>
+
+</td>
+<td class="" nowrap="nowrap">2-2</td>
+<td class="r1ml  txt_c" nowrap="nowrap"><span>36.8</span></td>
+</diary_snap_cut>
+<td class="txt_r" nowrap="nowrap">1.9</td>
+<td class="r1ml" align="right" nowrap="nowrap"><span>1</span></td>
+<td nowrap="nowrap">518(+4)</td>
+<diary_snap_cut>
+<td class="txt_c " nowrap="nowrap">
+<a href="/?pid=horse_training&id=2018105452&rid=202105021201"><img src="/style/netkeiba.ja/image/ico_oikiri.gif" width="13" height="13" border="0" /></a>
+</td>
+<td class="txt_c " nowrap="nowrap">
+<a href="/?pid=horse_comment&id=2018105452&rid=202105021201"><img src="/style/netkeiba.ja/image/ico_comment.gif" width="13" height="13" border="0" /></a>
+</td>
+<td class="" nowrap="nowrap">
+
+
+</td>
+</diary_snap_cut>
+<td class="txt_l" nowrap="nowrap">
+[東]
+<a href="/trainer/result/recent/01070/" title="堀宣行">堀宣行</a>
+
+</td>
+<diary_snap_cut>
+<td class="txt_l w6ml" nowrap="nowrap">
+<a href="/owner/result/recent/808800/" title="Ｇ１レーシング">Ｇ１レーシング</a>
+
+</td>
+<td class="txt_r" nowrap="nowrap">510.0</td>
+</diary_snap_cut>
+</tr><tr>
+<td class="txt_r" nowrap="nowrap">2</td>
+<td class="w2ml" align="right" nowrap="nowrap"><span>2</span></td>
+<td class="txt_r" nowrap="nowrap">4</td>
+<td class="txt_l" nowrap="nowrap">
+<a href="/horse/2018101894/" title="ターニングアップ" id="umalink_202105021201">ターニングアップ</a>
+
+</td>
+
+
+
