@@ -1,18 +1,21 @@
 1. Loading data...
 📂 Reading data from: /Users/atsukikitano/pj/house-race-prediction/functions/scrape/racedata
-✅ Successfully loaded and processed data for 22646 horses.
+✅ Successfully loaded and processed data for 30603 horses.
 2. Preprocessing data...
-> Found 22007 valid horse data entries.
+> Found 29858 valid horse data entries.
 3. Starting backtest to find the best parameters...
-✨ New Best ROI: 66.10% | Params (A:1, B:1, C:0.8)
-✨ New Best ROI: 66.39% | Params (A:6, B:1, C:0.8)
-✨ New Best ROI: 66.74% | Params (A:11, B:1, C:0.8)
-✨ New Best ROI: 66.76% | Params (A:61, B:1, C:0.8)
-✨ New Best ROI: 67.56% | Params (A:66, B:1, C:0.8)
-✨ New Best ROI: 67.64% | Params (A:86, B:1, C:0.8)
+✨ New Best ROI: 56.85% | Params (A:10, B:10, C:0.8, D:50)
+✨ New Best ROI: 56.87% | Params (A:20, B:10, C:0.8, D:50)
+✨ New Best ROI: 56.93% | Params (A:30, B:10, C:0.8, D:50)
+✨ New Best ROI: 56.95% | Params (A:60, B:10, C:0.8, D:150)
+✨ New Best ROI: 56.98% | Params (A:60, B:10, C:0.8, D:200)
+✨ New Best ROI: 57.05% | Params (A:70, B:10, C:0.8, D:200)
+✨ New Best ROI: 57.11% | Params (A:80, B:10, C:0.8, D:200)
+✨ New Best ROI: 57.13% | Params (A:90, B:10, C:0.8, D:150)
+✨ New Best ROI: 57.23% | Params (A:90, B:10, C:0.8, D:200)
 
 --- 🚀 All tasks completed! ---
 Best Parameters Found:
-{ weightA: 86, weightB: 1, thresholdC: '0.8' }
+{ weightA: 90, weightB: 10, thresholdC: '0.8', weightD: 200 }
 Best Backtest Result:
-{ roi: '67.64%', investment: 419500, return: 283760 }
+{ roi: '57.23%', investment: 561300, return: 321210 }

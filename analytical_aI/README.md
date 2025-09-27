@@ -14,3 +14,5 @@ analytical_ai/
 │ └── index.js # 設定ファイル (データパス、モデルのパラメータなど)
 │
 └── index.js # ★ 全体の処理を呼び出すメインファイル
+
+source venv/bin/activate
