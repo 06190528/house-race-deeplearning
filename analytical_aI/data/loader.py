@@ -1,6 +1,8 @@
 import os
 import json
+import pandas as pd
 
+from .preprocessor import preprocess_data
 
 def load_and_process_race_data(data_path: str) -> list[dict]:
     """
@@ -42,3 +44,28 @@ def load_and_process_race_data(data_path: str) -> list[dict]:
 
     print(f"✅ Successfully loaded data for {len(all_horse_data)} horses.")
     return all_horse_data
+
+
+# --- ▼▼▼ 新しく追加する関数 ▼▼▼ ---
+def load_and_preprocess_data(data_path: str) -> pd.DataFrame:
+    """
+    指定されたパスからデータを読み込み、前処理まで一括で行う関数。
+
+    Args:
+        data_path (str): データが保存されているディレクトリのパス
+
+    Returns:
+        pd.DataFrame: 前処理済みのDataFrame
+    """
+    # 1. 生データを読み込む
+    raw_data = load_and_process_race_data(data_path)
+    
+    if not raw_data:
+        print("生データが見つからなかったため、空のDataFrameを返します。")
+        return pd.DataFrame()
+
+    # 2. 前処理関数を呼び出す
+    df_processed = preprocess_data(raw_data)
+    
+    # 3. 成形したデータを返す
+    return df_processed

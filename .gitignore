@@ -13,3 +13,12 @@ npm-debug.log*
 
 # Data folder
 racedata/
+training_data/
+untouched_data/
+
+# Model files   
+*.joblib
+
+# Python Cache
+data/__pycache__/
+*.pyc
