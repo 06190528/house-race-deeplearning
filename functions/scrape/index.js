@@ -153,4 +153,4 @@ const scrapeAndSavePastRaces = async (days, delay) => {
 
 // --- メイン処理の実行 ---
 // 過去30日分のデータを、1.5秒間隔で取得する
-scrapeAndSavePastRaces(500, 50);
+scrapeAndSavePastRaces(500, 100);

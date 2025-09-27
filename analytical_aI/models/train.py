@@ -2,7 +2,8 @@ import sys
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
+# ▼▼▼ 変更点①: LightGBMをインポート ▼▼▼
+import lightgbm as lgb
 from sklearn.metrics import accuracy_score, confusion_matrix
 from joblib import dump
 
@@ -14,19 +15,15 @@ if project_root not in sys.path:
 # --- モジュールをインポート ---
 from analytical_aI.config.index import TRAINING_DATA_DIR, MODELS_DIR
 from analytical_aI.data.loader import load_and_preprocess_data
-# ▼▼▼ 変更点①: partition_raw_data をインポート ▼▼▼
 from analytical_aI.data.preprocessor import partition_raw_data
-
 
 def main():
     """
-    データ分割からモデル学習までを一貫して行うメイン関数
+    LightGBMモデルを学習し、勝率を予測するメイン関数
     """
-    # ▼▼▼ 変更点②: 最初のステップとしてデータ分割を実行 ▼▼▼
     # --- Step 0: 生データの分割 ---
     print("0. 生データを「学習用」と「未知データ用」に分割します...")
-    partition_raw_data(training_ratio=0.8)
-
+    # partition_raw_data(training_ratio=0.8)
 
     # --- Step 1: データの読み込みと前処理 ---
     print("\n1. 学習用データの読み込みと前処理を開始します...")
@@ -41,12 +38,11 @@ def main():
     print("\n2. 学習データとテストデータに分割します...")
     features = [
         'popularity', 'jockeyWinRate', 'age', 'weightCarried',
-        'horseWeight_val', 'horseWeight_change'
+        'horseWeight_val', 'horseWeight_change','winOdds'
     ]
     features = [f for f in features if f in df.columns]
     X = df[features]
     y = df['isWinner']
-
     X = X.fillna(X.mean())
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -56,20 +52,24 @@ def main():
     print(f"使用する特徴量: {features}")
 
     # --- Step 3: モデルの学習 ---
-    print("\n3. ロジスティック回帰モデルの学習を開始します...")
-    model = LogisticRegression(class_weight='balanced', max_iter=1000)
+    print("\n3. LightGBMモデルの学習を開始します...")
+    # ▼▼▼ 変更点②: モデルをLightGBMに変更 ▼▼▼
+    model = lgb.LGBMClassifier(
+        objective='binary',      # 目的：「勝つか/負けるか」の2値分類
+        is_unbalance=True,       # データの不均衡を考慮（勝ちデータが少ない問題に対処）
+        random_state=42
+    )
     model.fit(X_train, y_train)
     print("学習が完了しました。")
 
-    # --- Step 4: 勝率の予測 ---
+    # --- Step 4: 勝率の予測 (この部分は変更なし) ---
     print("\n4. テストデータを使って勝率を予測します...")
     win_probabilities = model.predict_proba(X_test)[:, 1]
-    
     df_test_result = X_test.copy()
     df_test_result['isWinner_actual'] = y_test.values
     df_test_result['win_probability_predicted'] = win_probabilities
     
-    # --- Step 5: モデルの評価 ---
+    # --- Step 5: モデルの評価 (この部分は変更なし) ---
     print("\n5. モデルの性能を評価します...")
     y_pred = (win_probabilities > 0.5).astype(int)
     accuracy = accuracy_score(y_test, y_pred)
@@ -81,7 +81,8 @@ def main():
 
     # --- Step 6: モデルの保存 ---
     os.makedirs(MODELS_DIR, exist_ok=True)
-    model_filename = MODELS_DIR / 'logistic_regression_model.joblib'
+    # ▼▼▼ 変更点③: ファイル名を変更（任意） ▼▼▼
+    model_filename = MODELS_DIR / 'lightgbm_model.joblib'
     dump(model, model_filename)
     print(f"\n✅ 学習済みモデルを '{model_filename}' として保存しました。")
 
