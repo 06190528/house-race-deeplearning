@@ -140,4 +140,4 @@ const scrapeAndSavePastRaces = async (days, delay) => {
   console.log("\n🎉 完了！");
 };
 
-scrapeAndSavePastRaces(34000, 1000);
+scrapeAndSavePastRaces(34000, 2000);

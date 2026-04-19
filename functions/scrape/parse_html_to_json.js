@@ -273,7 +273,6 @@ const main = async () => {
     try {
       const data = await parseHtmlFile(path.join(RAW_DIR, file));
       await fs.writeFile(outPath, JSON.stringify(data, null, 2), "utf-8");
-      console.log(`  ✅ [${i + 1}/${files.length}] ${path.basename(file, ".html")}`);
       ok++;
     } catch (err) {
       console.error(`  ❌ [${i + 1}/${files.length}] ${file}: ${err.message}`);
