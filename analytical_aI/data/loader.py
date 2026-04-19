@@ -4,37 +4,50 @@ import pandas as pd
 
 from .preprocessor import preprocess_data
 
+
 def load_and_process_race_data(data_path: str) -> list[dict]:
     """
     指定されたディレクトリから全てのレースデータを読み込み、
-    raceIdを各レコードに追加して単一のリストに変換する関数。
+    race_info の各フィールドを各馬のレコードに展開して単一リストに変換する。
 
-    Args:
-        data_path (str): データディレクトリへのパス
-
-    Returns:
-        list[dict]: 全ての馬の成績データを含む単一のリスト
+    JSONフォーマット:
+        { "race_id": "...", "race_info": {...}, "horses": [...] }
     """
     print(f"📂 Reading data from: {data_path}")
     all_horse_data = []
 
     try:
-        # ディレクトリ内の全ファイル名を取得
         files = os.listdir(data_path)
 
         for file_name in files:
-            if file_name.endswith(".json"):
-                file_path = os.path.join(data_path, file_name)
+            if not file_name.endswith(".json"):
+                continue
 
-                with open(file_path, "r", encoding="utf-8") as f:
-                    single_race_data = json.load(f)
+            file_path = os.path.join(data_path, file_name)
+            with open(file_path, "r", encoding="utf-8") as f:
+                single_race_data = json.load(f)
 
-                # ファイル名から 'race_id' を取得 (拡張子 .json を除去)
+            # --- 新フォーマット: {"race_id": ..., "race_info": {...}, "horses": [...]} ---
+            if isinstance(single_race_data, dict) and "horses" in single_race_data:
+                race_id = single_race_data.get("race_id", os.path.splitext(file_name)[0])
+                race_info = single_race_data.get("race_info", {})
+
+                for horse_result in single_race_data["horses"]:
+                    record = horse_result.copy()
+                    record["race_id"] = race_id
+                    # race_info のフィールドをフラットに追加
+                    record["track_type"] = race_info.get("track_type")
+                    record["direction"] = race_info.get("direction")
+                    record["distance"] = race_info.get("distance")
+                    record["weather"] = race_info.get("weather")
+                    record["track_condition"] = race_info.get("track_condition")
+                    all_horse_data.append(record)
+
+            # --- 旧フォーマット: [horse, horse, ...] の配列 ---
+            elif isinstance(single_race_data, list):
                 race_id = os.path.splitext(file_name)[0]
-
-                # 各馬のデータに race_id を追加してリストに格納
                 for horse_result in single_race_data:
-                    horse_result['raceId'] = race_id
+                    horse_result["race_id"] = race_id
                     all_horse_data.append(horse_result)
 
     except FileNotFoundError:
@@ -46,26 +59,20 @@ def load_and_process_race_data(data_path: str) -> list[dict]:
     return all_horse_data
 
 
-# --- ▼▼▼ 新しく追加する関数 ▼▼▼ ---
-def load_and_preprocess_data(data_path: str) -> pd.DataFrame:
+def load_and_preprocess_data(data_path: str) -> tuple[pd.DataFrame, list[int]]:
     """
-    指定されたパスからデータを読み込み、前処理まで一括で行う関数。
-
-    Args:
-        data_path (str): データが保存されているディレクトリのパス
+    データ読み込みから前処理まで一括で行う。
 
     Returns:
-        pd.DataFrame: 前処理済みのDataFrame
+        tuple[pd.DataFrame, list[int]]:
+            - 前処理済みDataFrame
+            - LambdaRank用 group 配列（レースごとの頭数リスト）
     """
-    # 1. 生データを読み込む
     raw_data = load_and_process_race_data(data_path)
-    
+
     if not raw_data:
         print("生データが見つからなかったため、空のDataFrameを返します。")
-        return pd.DataFrame()
+        return pd.DataFrame(), []
 
-    # 2. 前処理関数を呼び出す
-    df_processed = preprocess_data(raw_data)
-    
-    # 3. 成形したデータを返す
-    return df_processed
+    df, group_data = preprocess_data(raw_data)
+    return df, group_data
