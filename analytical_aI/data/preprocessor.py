@@ -1,72 +1,129 @@
-import pandas as pd
-import numpy as np
 import os
 import glob
 import random
 import shutil
 
+import pandas as pd
+import numpy as np
+
 from analytical_aI.config.index import DATA_PATH, UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR
-
-
-# ▼▼▼ 変更点① ▼▼▼
-# 外部の関数をインポート
 from analytical_aI.data.feature_engineering import calculate_jockey_win_rates
 
-# ▼▼▼ 変更点② ▼▼▼
-# 引数から jockey_win_rates を削除
-def preprocess_data(raw_data: list[dict]) -> pd.DataFrame:
+
+# ---------------------------------------------------------------------------
+# カテゴリ変数カラム定義（LightGBMが category 型を直接扱うため One-Hot 不要）
+# ---------------------------------------------------------------------------
+CAT_COLS = ["sex", "track_type", "track_condition", "weather", "direction"]
+
+# ---------------------------------------------------------------------------
+# 学習に使う特徴量（winOdds / popularity は除外 ― バックテスト時のみ使用）
+# ---------------------------------------------------------------------------
+FEATURE_COLS = [
+    "age",
+    "sex",               # カテゴリ
+    "weight_carried",    # 斤量
+    "horse_weight",      # 馬体重
+    "weight_change",     # 体重増減
+    "jockey_win_rate",   # 騎手勝率（集計特徴量）
+    "track_type",        # 芝 / ダ（カテゴリ）
+    "distance",          # 距離
+    "track_condition",   # 馬場状態（カテゴリ）
+    "weather",           # 天候（カテゴリ）
+    "direction",         # コース方向（カテゴリ）
+]
+
+
+def _get_relevance_score(rank) -> int:
+    """着順を LambdaRank 用の relevance score に変換する。"""
+    try:
+        r = int(rank)
+        if r == 1:
+            return 3
+        elif r == 2:
+            return 2
+        elif r == 3:
+            return 1
+        else:
+            return 0
+    except (TypeError, ValueError):
+        # "中"（中止）"取"（取消）などの文字列は 0 扱い
+        return 0
+
+
+def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
     """
-    生のレースデータを分析可能なDataFrameに前処理する。
-    この関数内で特徴量エンジニアリングも呼び出す。
+    生のレースデータを LambdaRank 学習用 DataFrame に変換する。
+
+    処理内容:
+        1. DataFrame 化
+        2. 騎手勝率の付与
+        3. 数値型への変換
+        4. sex の数値エンコード（牡=1 / 牝=0 / セ=2）
+        5. 新フィールド: label（relevance score）
+        6. カテゴリ型へのキャスト
+        7. 欠損値処理
+        8. race_id でソート（LambdaRank の必須条件）
+        9. group 配列の生成
+
+    Returns:
+        tuple[pd.DataFrame, list[int]]:
+            - 前処理済み DataFrame
+            - LambdaRank 用 group 配列（レースごとの頭数リスト）
     """
     if not raw_data:
-        return pd.DataFrame()
+        return pd.DataFrame(), []
 
-    # ▼▼▼ 変更点③ ▼▼▼
-    # 関数内で騎手勝率を計算する
+    # --- 1. 騎手勝率を事前計算 ---
     print("Calculating jockey win rates...")
     jockey_win_rates = calculate_jockey_win_rates(raw_data)
 
+    # --- 2. DataFrame 化 ---
     df = pd.DataFrame(raw_data)
 
-    # --- 1. 基本的な数値列の変換 ---
+    # --- 3. 数値型変換 ---
     numeric_cols = [
-        'rank', 'frameNumber', 'horseNumber', 'popularity', 
-        'weightCarried', 'winOdds', 'last3Furlongs', 'prizeMoney'
+        "rank", "horse_number", "frame_number",
+        "age", "weight_carried", "horse_weight", "weight_change",
+        "odds", "popularity", "distance",
     ]
     for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # --- 2. 複合データの分割と変換 ---
-    df['sex'] = df['sexAndAge'].str[0].map({'牝': 0, '牡': 1, 'セ': 2}).fillna(-1).astype(int)
-    df['age'] = pd.to_numeric(df['sexAndAge'].str[1:], errors='coerce')
+    # --- 4. sex のエンコード（カテゴリ変数として扱うため文字列を保持） ---
+    # LightGBM category 型で直接扱う → 日本語文字列のまま category にキャスト
 
-    weight_data = df['horseWeight'].str.extract(r'(\d+)\(([-+]?\d+)\)').astype(float)
-    df['horseWeight_val'] = weight_data[0]
-    df['horseWeight_change'] = weight_data[1]
+    # --- 5. 騎手勝率を付与 ---
+    jockey_col = "jockey_id" if "jockey_id" in df.columns else "jockey"
+    df["jockey_win_rate"] = df[jockey_col].map(jockey_win_rates).fillna(0.0)
 
-    def time_to_seconds(time_str):
-        if pd.isna(time_str): return np.nan
-        parts = str(time_str).split(':')
-        try:
-            if len(parts) == 2: return float(parts[0]) * 60 + float(parts[1])
-            elif len(parts) == 1: return float(parts[0])
-        except (ValueError, TypeError): return np.nan
-        return np.nan
-        
-    df['time_seconds'] = df['time'].apply(time_to_seconds)
+    # --- 6. 目的変数: relevance score（LambdaRank 用） ---
+    df["label"] = df["rank"].apply(_get_relevance_score)
 
-    # --- 3. 新しい特徴量の追加 ---
-    df['isWinner'] = (df['rank'] == 1).astype(int)
-    df['jockeyWinRate'] = df['jockey'].map(jockey_win_rates).fillna(0)
+    # --- 7. 不要行の除去 ---
+    # rank が解釈不能（取消・除外など）は既に label=0 だが、
+    # odds が 0 / NaN の行は期待値計算で使えないため除外
+    df = df[df["odds"].notna() & (df["odds"] > 0)].copy()
+    df.dropna(subset=["rank", "horse_number"], inplace=True)
+    df["rank"] = df["rank"].astype(int)
 
-    # --- 4. 不要な列の削除と最終クリーンアップ ---
-    df.drop(columns=['sexAndAge', 'horseWeight', 'time'], inplace=True)
-    df.dropna(subset=['rank', 'popularity', 'winOdds', 'horseNumber'], inplace=True)
-    df = df[df['winOdds'] > 0]
-    df['rank'] = df['rank'].astype(int)
+    # --- 8. カテゴリ変数を category 型にキャスト ---
+    for col in CAT_COLS:
+        if col in df.columns:
+            df[col] = df[col].astype("category")
 
-    return df
+    # --- 9. 数値特徴量の欠損値を平均補完 ---
+    num_feature_cols = [c for c in FEATURE_COLS if c in df.columns and c not in CAT_COLS]
+    df[num_feature_cols] = df[num_feature_cols].fillna(df[num_feature_cols].mean())
+
+    # --- 10. race_id でソート（LambdaRank の絶対条件） ---
+    df = df.sort_values(by=["race_id", "horse_number"]).reset_index(drop=True)
+
+    # --- 11. group 配列の生成 ---
+    group_data: list[int] = df.groupby("race_id", sort=False).size().tolist()
+
+    print(f"前処理完了: {len(df)} 件 / {df['race_id'].nunique()} レース")
+    return df, group_data
 
 
 def partition_raw_data(training_ratio: float = 0.8) -> None:
@@ -76,30 +133,26 @@ def partition_raw_data(training_ratio: float = 0.8) -> None:
     """
     print(f"\n--- データを学習用と未知用に分割します ---")
 
-    # 1. 各フォルダを一旦空にして再作成
     for dir_path in [UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR]:
         if os.path.exists(dir_path):
             shutil.rmtree(dir_path)
         os.makedirs(dir_path)
 
-    # 2. 全てのjsonファイルリストを取得してシャッフル
-    all_files = glob.glob(os.path.join(DATA_PATH, '*.json'))
+    all_files = glob.glob(os.path.join(DATA_PATH, "*.json"))
     random.shuffle(all_files)
 
-    # 3. 学習用と未知用にファイルリストを分割
     split_index = int(len(all_files) * training_ratio)
     training_files = all_files[:split_index]
     untouched_files = all_files[split_index:]
 
-    # 4. それぞれの専用フォルダにファイルをコピーする
     print("学習用データをコピー中...")
     for f in training_files:
         shutil.copy(f, TRAINING_DATA_DIR)
-        
+
     print("未知データをコピー中...")
     for f in untouched_files:
         shutil.copy(f, UNTOUCHED_DATA_DIR)
-        
+
     print(f"学習用データ: {len(training_files)}レース分を '{TRAINING_DATA_DIR.name}' にコピーしました。")
     print(f"未知データ: {len(untouched_files)}レース分を '{UNTOUCHED_DATA_DIR.name}' にコピーしました。")
     print("元のデータフォルダは変更されていません。")
