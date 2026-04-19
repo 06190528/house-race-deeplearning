@@ -13,6 +13,7 @@ npm-debug.log*
 
 # Data folder
 racedata/
+raceRawHtmlData/
 training_data/
 untouched_data/
 
