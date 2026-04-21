@@ -2,7 +2,8 @@ from pathlib import Path
 
 # このファイル(config.py)の親ディレクトリ(analytical_ai)を
 # このPythonプロジェクトの基準点（ルート）とする
-PROJECT_ROOT = Path(__file__).parent.resolve()
+# analytical_aI/ ディレクトリをプロジェクトルートとして使う
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 # このファイル (config.py) があるディレクトリの絶対パスを取得
 # 例: /Users/username/project/analytical_ai/config

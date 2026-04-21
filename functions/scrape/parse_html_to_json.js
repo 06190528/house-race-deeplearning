@@ -252,35 +252,42 @@ const parseHtmlFile = async (htmlPath) => {
   };
 };
 
+const CONCURRENCY = 200;
+
 const main = async () => {
   await fs.mkdir(OUT_DIR, { recursive: true });
 
   const files = (await fs.readdir(RAW_DIR)).filter((f) => f.endsWith(".html")).sort();
-  console.log(`📂 ${files.length} ファイルを処理します\n`);
+  console.log(`📂 ${files.length} ファイルを処理します (${CONCURRENCY} 並列)\n`);
 
   let ok = 0, skipped = 0, errors = 0;
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const outPath = path.join(OUT_DIR, file.replace(".html", ".json"));
+  for (let i = 0; i < files.length; i += CONCURRENCY) {
+    const batch = files.slice(i, i + CONCURRENCY);
 
-    try {
-      await fs.access(outPath);
-      skipped++;
-      continue;
-    } catch { /* 未処理 → 続行 */ }
+    await Promise.all(batch.map(async (file) => {
+      const outPath = path.join(OUT_DIR, file.replace(".html", ".json"));
 
-    try {
-      const data = await parseHtmlFile(path.join(RAW_DIR, file));
-      await fs.writeFile(outPath, JSON.stringify(data, null, 2), "utf-8");
-      ok++;
-    } catch (err) {
-      console.error(`  ❌ [${i + 1}/${files.length}] ${file}: ${err.message}`);
-      errors++;
-    }
+      try {
+        await fs.access(outPath);
+        skipped++;
+        return;
+      } catch { /* 未処理 → 続行 */ }
+
+      try {
+        const data = await parseHtmlFile(path.join(RAW_DIR, file));
+        await fs.writeFile(outPath, JSON.stringify(data, null, 2), "utf-8");
+        ok++;
+      } catch (err) {
+        console.error(`  ❌ ${file}: ${err.message}`);
+        errors++;
+      }
+    }));
+
+    process.stdout.write(`\r  進捗: ${Math.min(i + CONCURRENCY, files.length)} / ${files.length}  (新規 ${ok} / エラー ${errors})`);
   }
 
-  console.log(`\n🎉 完了: 新規 ${ok} 件 / スキップ ${skipped} 件 / エラー ${errors} 件`);
+  console.log(`\n\n🎉 完了: 新規 ${ok} 件 / スキップ ${skipped} 件 / エラー ${errors} 件`);
 };
 
 main();
