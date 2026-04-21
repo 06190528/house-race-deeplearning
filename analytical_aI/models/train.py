@@ -18,7 +18,7 @@ from analytical_aI.data.preprocessor import partition_raw_data
 def main():
     # --- Step 0: 生データの分割 ---
     print("0. 生データを「学習用」と「未知データ用」に分割します...")
-    # partition_raw_data(training_ratio=0.8)
+    partition_raw_data(training_ratio=0.8)
 
     # --- Step 1: データの読み込みと前処理 ---
     print("\n1. 学習用データの読み込みと前処理を開始します...")
