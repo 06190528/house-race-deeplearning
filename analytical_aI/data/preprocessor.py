@@ -139,7 +139,7 @@ def partition_raw_data(training_ratio: float = 0.8) -> None:
         os.makedirs(dir_path)
 
     all_files = glob.glob(os.path.join(DATA_PATH, "*.json"))
-    random.shuffle(all_files)
+    all_files = sorted(all_files)
 
     split_index = int(len(all_files) * training_ratio)
     training_files = all_files[:split_index]

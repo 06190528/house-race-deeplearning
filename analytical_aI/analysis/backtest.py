@@ -14,7 +14,7 @@ from analytical_aI.config.index import MODELS_DIR, UNTOUCHED_DATA_DIR
 from analytical_aI.data.loader import load_and_preprocess_data
 from analytical_aI.data.preprocessor import FEATURE_COLS
 
-def main(bet_threshold: float = 1.2, race_budget: int = 100):
+def main(bet_threshold: float = 1.2, win_rate_threshold: float = 0.05, race_budget: int = 100):
     """
     未知データでバックテストを実行する。
     LambdaRankの予測スコアをSoftmaxで勝率に変換し、期待値(EV)を計算する。
@@ -65,7 +65,10 @@ def main(bet_threshold: float = 1.2, race_budget: int = 100):
     num_bets = 0
 
     for race_id, race_df in df_untouched.groupby('race_id'):
-        value_bets = race_df[race_df['expected_value'] > bet_threshold]
+        value_bets = value_bets = race_df[
+             (race_df['expected_value'] > bet_threshold) &
+            (race_df['predicted_win_rate'] > win_rate_threshold)
+        ]
 
         if value_bets.empty:
             continue
@@ -96,4 +99,4 @@ def main(bet_threshold: float = 1.2, race_budget: int = 100):
     print("-------------------------")
 
 if __name__ == "__main__":
-    main(bet_threshold=1.2)
+    main(bet_threshold=1.2, win_rate_threshold=0.10)
