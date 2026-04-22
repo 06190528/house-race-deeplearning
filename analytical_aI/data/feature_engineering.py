@@ -81,6 +81,21 @@ def calculate_prev_time_diff(df: pd.DataFrame) -> pd.Series:
     return prev_diff.reindex(work.index).fillna(10.0)
 
 
+def calculate_prev_rank_ratio(df: pd.DataFrame) -> pd.Series:
+    """前走の着順割合（rank / field_size）を返す。初出走は 0.5 で補完。"""
+    work = df[["horse_id", "race_id", "rank", "field_size"]].copy()
+    work["rank"] = pd.to_numeric(work["rank"], errors="coerce")
+    work["field_size"] = pd.to_numeric(work["field_size"], errors="coerce")
+    work["rank_ratio"] = work["rank"] / work["field_size"]
+
+    work_sorted = work.sort_values(["horse_id", "race_id"])
+    prev_ratio = work_sorted.groupby("horse_id")["rank_ratio"].transform(
+        lambda x: x.shift(1)
+    )
+
+    return prev_ratio.reindex(work.index).fillna(0.5)
+
+
 def calculate_jockey_track_win_rate(df: pd.DataFrame) -> pd.Series:
     """騎手×コース種別（芝/ダ）の過去勝率を返す（当該レースは含まない）。"""
     jockey_col = "jockey_id" if "jockey_id" in df.columns else "jockey"

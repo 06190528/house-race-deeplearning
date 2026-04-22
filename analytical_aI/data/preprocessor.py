@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from analytical_aI.config.index import DATA_PATH, UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR
-from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff
+from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff, calculate_prev_rank_ratio
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +36,7 @@ FEATURE_COLS = [
     "avg_odds",         # レース内単勝平均オッズ（混戦度）
     "jockey_track_win_rate",  # 騎手×コース種別（芝/ダ）の過去勝率
     "prev_time_diff",         # 前走の1着馬とのタイム差（秒）
+    "prev_rank_ratio",        # 前走の着順割合（rank / field_size、小さいほど優秀）
 ]
 
 
@@ -133,6 +134,9 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 前走の1着馬とのタイム差を付与 ---
     df["prev_time_diff"] = calculate_prev_time_diff(df)
+
+    # --- . 前走の着順割合を付与（field_size の後に計算） ---
+    df["prev_rank_ratio"] = calculate_prev_rank_ratio(df)
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
