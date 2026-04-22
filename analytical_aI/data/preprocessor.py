@@ -30,7 +30,8 @@ FEATURE_COLS = [
     "track_condition",   # 馬場状態（カテゴリ）
     "weather",           # 天候（カテゴリ）
     "direction",         # コース方向（カテゴリ）
-    "last_3f_zscore",   # 上がり3F レース内Z-score
+    "last_3f_zscore",   # 上がり3F 過去3走Z-score平均
+    "load_ratio",       # 斤量 / 馬体重（体重比負担率）
 ]
 
 
@@ -110,6 +111,9 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 上がり3ハロンを付与 ---
     df["last_3f_zscore"] = calculate_last3f_zscore(df)
+
+    # --- . 斤量体重比を付与 ---
+    df["load_ratio"] = df["weight_carried"] / df["horse_weight"]
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
