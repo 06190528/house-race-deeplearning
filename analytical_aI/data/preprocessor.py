@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from analytical_aI.config.index import DATA_PATH, UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR
-from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore
+from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +34,8 @@ FEATURE_COLS = [
     "load_ratio",       # 斤量 / 馬体重（体重比負担率）
     "field_size",       # 出走頭数
     "avg_odds",         # レース内単勝平均オッズ（混戦度）
+    "jockey_track_win_rate",  # 騎手×コース種別（芝/ダ）の過去勝率
+    "prev_time_diff",         # 前走の1着馬とのタイム差（秒）
 ]
 
 
@@ -122,6 +124,15 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 単勝平均オッズを付与（レースの混戦度） ---
     df["avg_odds"] = df.groupby("race_id")["odds"].transform("mean")
+
+    # # --- . PCI・RPCI の過去近走平均を付与（精度低下のため一時無効化）---
+    # df = calculate_historical_pci(df)
+
+    # --- . 騎手×コース種別の過去勝率を付与 ---
+    df["jockey_track_win_rate"] = calculate_jockey_track_win_rate(df)
+
+    # --- . 前走の1着馬とのタイム差を付与 ---
+    df["prev_time_diff"] = calculate_prev_time_diff(df)
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
