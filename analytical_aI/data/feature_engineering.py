@@ -42,6 +42,25 @@ def calculate_jockey_win_rates(raw_data: list[dict], min_rides: int = 20) -> dic
 
     return jockey_win_rates
 
+def calculate_last3f_zscore(df: pd.DataFrame) -> pd.Series:
+    """馬の過去レースにおける上がり3F Z-scoreの平均を返す（当該レースは含まない）。"""
+    work = df[["horse_id", "race_id", "last_3f"]].copy()
+    work["last_3f"] = pd.to_numeric(work["last_3f"], errors="coerce")
+
+    def zscore(x):
+        std = x.std()
+        if std == 0 or pd.isna(std):
+            return pd.Series(0.0, index=x.index)
+        return (x - x.mean()) / std
+
+    work["_z_tmp"] = work.groupby("race_id")["last_3f"].transform(zscore)
+
+    work_sorted = work.sort_values(["horse_id", "race_id"])
+    historical = work_sorted.groupby("horse_id")["_z_tmp"].transform(
+        lambda x: x.shift(1).rolling(window=3, min_periods=1).mean()
+    )
+
+    return historical.reindex(work.index)
 
 # --- ここに他の特徴量作成関数も追加していく ---
 # def calculate_trainer_win_rates(raw_data, min_races=20):
