@@ -33,6 +33,7 @@ FEATURE_COLS = [
     "last_3f_zscore",   # 上がり3F 過去3走Z-score平均
     "load_ratio",       # 斤量 / 馬体重（体重比負担率）
     "field_size",       # 出走頭数
+    "avg_odds",         # レース内単勝平均オッズ（混戦度）
 ]
 
 
@@ -118,6 +119,9 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 出走頭数を付与 ---
     df["field_size"] = df.groupby("race_id")["race_id"].transform("count")
+
+    # --- . 単勝平均オッズを付与（レースの混戦度） ---
+    df["avg_odds"] = df.groupby("race_id")["odds"].transform("mean")
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
