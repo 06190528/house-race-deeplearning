@@ -99,4 +99,4 @@ def main(bet_threshold: float = 1.2, win_rate_threshold: float = 0.05, race_budg
     print("-------------------------")
 
 if __name__ == "__main__":
-    main(bet_threshold=1.2, win_rate_threshold=0.10)
+    main(bet_threshold=1.2, win_rate_threshold=0.15)
