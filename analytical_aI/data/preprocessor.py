@@ -32,6 +32,7 @@ FEATURE_COLS = [
     "direction",         # コース方向（カテゴリ）
     "last_3f_zscore",   # 上がり3F 過去3走Z-score平均
     "load_ratio",       # 斤量 / 馬体重（体重比負担率）
+    "field_size",       # 出走頭数
 ]
 
 
@@ -114,6 +115,9 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 斤量体重比を付与 ---
     df["load_ratio"] = df["weight_carried"] / df["horse_weight"]
+
+    # --- . 出走頭数を付与 ---
+    df["field_size"] = df.groupby("race_id")["race_id"].transform("count")
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
