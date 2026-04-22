@@ -103,7 +103,7 @@ def main():
         
         # 例外処理: 賭けるレースが極端に少ない（例えば全体の5%未満）場合は、
         # まぐれ当たりの過学習を防ぐためにROIをペナルティとして0にする
-        if bet_races < (total_races * 0.05):
+        if bet_races < (total_races * 0.25):
             return 0.0
             
         return roi
