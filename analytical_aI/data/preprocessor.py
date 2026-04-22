@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from analytical_aI.config.index import DATA_PATH, UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR
-from analytical_aI.data.feature_engineering import calculate_jockey_win_rates
+from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +30,7 @@ FEATURE_COLS = [
     "track_condition",   # 馬場状態（カテゴリ）
     "weather",           # 天候（カテゴリ）
     "direction",         # コース方向（カテゴリ）
+    "last_3f_zscore",   # 上がり3F レース内Z-score
 ]
 
 
@@ -106,6 +107,9 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
     df = df[df["odds"].notna() & (df["odds"] > 0)].copy()
     df.dropna(subset=["rank", "horse_number"], inplace=True)
     df["rank"] = df["rank"].astype(int)
+
+    # --- . 上がり3ハロンを付与 ---
+    df["last_3f_zscore"] = calculate_last3f_zscore(df)
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
