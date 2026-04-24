@@ -2,46 +2,35 @@ import pandas as pd
 import numpy as np
 
 
-def calculate_jockey_win_rates(raw_data: list[dict], min_rides: int = 20) -> dict:
+def calculate_jockey_win_rate(df: pd.DataFrame, window: int | None = 50) -> pd.Series:
     """
-    全レースデータから騎手ごとの勝率を計算する。
+    騎手の過去勝率を返す（当該レースは含まない）。
 
-    Args:
-        raw_data: load_and_process_race_data で読み込んだ生の全レースデータ
-        min_rides: 勝率を計算するための最低騎乗回数（デフォルト20）
-
-    Returns:
-        dict: 騎手ID をキー、勝率を値とする辞書
+    shift(1) により自然にリーク防止。
+    window: 直近N走で集計（None なら全期間累計）
+    20走未満のジョッキーは 0.0 で補完。
     """
-    jockey_stats: dict[str, dict] = {}
+    jockey_col = "jockey_id" if "jockey_id" in df.columns else "jockey"
+    work = df[[jockey_col, "race_id", "rank"]].copy()
+    work["rank"] = pd.to_numeric(work["rank"], errors="coerce")
+    work["is_win"] = (work["rank"] == 1).astype(int)
+    work_sorted = work.sort_values([jockey_col, "race_id"])
 
-    for horse in raw_data:
-        # 新フォーマット: jockey_id / 旧フォーマット: jockey の両方に対応
-        jockey = horse.get("jockey_id") or horse.get("jockey")
-        if not jockey:
-            continue
+    if window is None:
+        rides = work_sorted.groupby(jockey_col).cumcount()
+        wins  = work_sorted.groupby(jockey_col)["is_win"].transform(
+            lambda x: x.shift(1).cumsum().fillna(0)
+        )
+    else:
+        wins  = work_sorted.groupby(jockey_col)["is_win"].transform(
+            lambda x: x.shift(1).rolling(window=window, min_periods=1).sum().fillna(0)
+        )
+        rides = work_sorted.groupby(jockey_col)["is_win"].transform(
+            lambda x: x.shift(1).rolling(window=window, min_periods=1).count().fillna(0)
+        )
 
-        if jockey not in jockey_stats:
-            jockey_stats[jockey] = {"rides": 0, "wins": 0}
-
-        jockey_stats[jockey]["rides"] += 1
-
-        # rank は新フォーマットでは int、旧フォーマットでは str の場合がある
-        rank = horse.get("rank")
-        try:
-            if int(rank) == 1:
-                jockey_stats[jockey]["wins"] += 1
-        except (TypeError, ValueError):
-            pass
-
-    jockey_win_rates: dict[str, float] = {}
-    for jockey, stats in jockey_stats.items():
-        if stats["rides"] >= min_rides:
-            jockey_win_rates[jockey] = stats["wins"] / stats["rides"]
-        else:
-            jockey_win_rates[jockey] = 0.0
-
-    return jockey_win_rates
+    result = np.where(rides >= 20, wins / rides, 0.0)
+    return pd.Series(result, index=work_sorted.index).reindex(work.index)
 
 def calculate_last3f_zscore(df: pd.DataFrame) -> pd.Series:
     """馬の過去レースにおける上がり3F Z-scoreの平均を返す（当該レースは含まない）。"""
