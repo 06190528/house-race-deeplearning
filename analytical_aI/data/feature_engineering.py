@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 
 
-def calculate_jockey_win_rate(df: pd.DataFrame, window: int | None = 50) -> pd.Series:
+def calculate_jockey_win_rate(df: pd.DataFrame, window: int | None = None) -> pd.Series:
     """
     騎手の過去勝率を返す（当該レースは含まない）。
 
     shift(1) により自然にリーク防止。
-    window: 直近N走で集計（None なら全期間累計）
+    window: 直近N走で集計（None なら全期間累計 ← デフォルト）
     20走未満のジョッキーは 0.0 で補完。
     """
     jockey_col = "jockey_id" if "jockey_id" in df.columns else "jockey"
