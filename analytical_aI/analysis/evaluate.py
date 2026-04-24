@@ -118,7 +118,7 @@ def run_trial(trial_idx, train_df, unseen_df, available_features, seed):
     }
 
 
-def main(n_trials=10, base_seed=42):
+def main(n_trials=20, base_seed=42):
     print("データを読み込み中（1回のみ）...")
     train_df, unseen_df = load_and_split_data(DATA_PATH, TRAIN_RATIO)
 
@@ -148,7 +148,7 @@ def main(n_trials=10, base_seed=42):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n-trials", type=int, default=10, help="試行回数（デフォルト: 10）")
+    parser.add_argument("--n-trials", type=int, default=20, help="試行回数（デフォルト: 10）")
     parser.add_argument("--base-seed", type=int, default=42, help="ベースシード（デフォルト: 42）")
     args = parser.parse_args()
     main(args.n_trials, args.base_seed)
