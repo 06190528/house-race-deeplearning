@@ -24,17 +24,6 @@ def softmax(x):
     return e_x / e_x.sum()
 
 
-def compute_ev_weights(train_df, scores, center=0.95, tau=0.02):
-    df = train_df.copy()
-    df['predicted_score'] = scores
-    df['predicted_win_rate'] = df.groupby('race_id')['predicted_score'].transform(
-        lambda x: softmax(x.values)
-    )
-    df['expected_value'] = df['predicted_win_rate'] * df['odds']
-    raw_weight = 1.0 + 1.0 / (1.0 + np.exp(-(df['expected_value'] - center) / tau))
-    return (raw_weight / raw_weight.groupby(df['race_id']).transform('mean')).values
-
-
 def calculate_roi(df, bet_threshold, win_rate_threshold, race_budget=100):
     mask = (df['expected_value'] > bet_threshold) & (df['predicted_win_rate'] > win_rate_threshold)
     value_bets = df[mask].copy()
@@ -71,25 +60,14 @@ def run_trial(trial_idx, train_df, unseen_df, available_features, seed):
     y_val   = v_df['label']
     group_val = v_df.groupby('race_id', sort=False).size().tolist()
 
-    # --- Stage 1 ---
-    stage1 = lgb.LGBMRanker(
-        objective="lambdarank", metric="ndcg", boosting_type="gbdt",
-        n_estimators=200, learning_rate=0.05, num_leaves=63,
-        importance_type="gain", random_state=seed, n_jobs=1,
-    )
-    stage1.fit(X_train, y_train, group=group_train,
-               categorical_feature=CAT_COLS, callbacks=[log_evaluation(period=-1)])
-
-    weights = compute_ev_weights(t_df, stage1.predict(X_train))
-
-    # --- Stage 2 ---
+    # --- LambdaRank ---
     model = lgb.LGBMRanker(
         objective="lambdarank", metric="ndcg", boosting_type="gbdt",
         n_estimators=1000, learning_rate=0.05, num_leaves=63,
         importance_type="gain", random_state=seed, n_jobs=1,
     )
     model.fit(
-        X_train, y_train, group=group_train, sample_weight=weights,
+        X_train, y_train, group=group_train,
         eval_set=[(X_val, y_val)], eval_group=[group_val], eval_at=[3, 5],
         categorical_feature=CAT_COLS,
         callbacks=[early_stopping(stopping_rounds=50), log_evaluation(period=-1)],
