@@ -31,6 +31,7 @@ FEATURE_COLS = [
     "jockey_track_win_rate",  # 騎手×コース種別（芝/ダ）の過去勝率
     "prev_time_diff",         # 前走の1着馬とのタイム差（秒）
     "prev_rank_ratio",        # 前走の着順割合（rank / field_size、小さいほど優秀）
+    "jockey_win_rate_relative",  # 騎手勝率のレース内偏差
 ]
 
 
@@ -108,6 +109,11 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
 
     # --- . 前走の着順割合を付与（field_size の後に計算） ---
     df["prev_rank_ratio"] = calculate_prev_rank_ratio(df)
+
+    # --- . 相対特徴量: 騎手勝率のレース内偏差 ---
+    df["jockey_win_rate_relative"] = (
+        df["jockey_win_rate"] - df.groupby("race_id")["jockey_win_rate"].transform("mean")
+    )
 
     # --- 8. カテゴリ変数を category 型にキャスト ---
     for col in CAT_COLS:
