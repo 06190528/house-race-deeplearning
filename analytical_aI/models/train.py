@@ -1,6 +1,5 @@
 import sys
 import os
-import numpy as np
 import pandas as pd
 import lightgbm as lgb
 from lightgbm.callback import early_stopping, log_evaluation
@@ -14,28 +13,6 @@ from analytical_aI.config.index import DATA_PATH, MODELS_DIR, TRAIN_RATIO
 from analytical_aI.data.loader import load_and_split_data
 from analytical_aI.data.preprocessor import FEATURE_COLS, CAT_COLS
 
-
-def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-
-def compute_ev_weights(train_df: pd.DataFrame, scores: np.ndarray,
-                       center: float = 0.95, tau: float = 0.02) -> np.ndarray:
-    """Stage1スコアから期待値ベースの正規化重みを計算する。"""
-    df = train_df.copy()
-    df['predicted_score'] = scores
-
-    df['predicted_win_rate'] = df.groupby('race_id')['predicted_score'].transform(
-        lambda x: softmax(x.values)
-    )
-    df['expected_value'] = df['predicted_win_rate'] * df['odds']
-
-    raw_weight = 1.0 + 1.0 / (1.0 + np.exp(-(df['expected_value'] - center) / tau))
-
-    normalized_weight = raw_weight / raw_weight.groupby(df['race_id']).transform('mean')
-
-    return normalized_weight.values
 
 
 def main():
@@ -74,38 +51,8 @@ def main():
     print(f"> 学習データ: {len(X_train)} 件 / 検証データ: {len(X_val)} 件")
     print(f"> 使用特徴量: {available_features}")
 
-    # --- Step 3a: Stage 1 ベースラインモデルの学習 ---
-    print("\n3a. [Stage 1] ベースラインモデルを学習します（重みなし）...")
-
-    stage1_model = lgb.LGBMRanker(
-        objective="lambdarank",
-        metric="ndcg",
-        boosting_type="gbdt",
-        n_estimators=200,
-        learning_rate=0.05,
-        num_leaves=63,
-        importance_type="gain",
-        random_state=42,
-    )
-
-    stage1_model.fit(
-        X_train,
-        y_train,
-        group=group_train,
-        categorical_feature=CAT_COLS,
-        callbacks=[log_evaluation(period=50)],
-    )
-
-    # --- Step 3b: 期待値ベースの重みを計算 ---
-    print("\n3b. Stage1スコアから期待値（EV）と学習重みを計算します...")
-
-    stage1_scores = stage1_model.predict(X_train)
-    weights = compute_ev_weights(train_df, stage1_scores)
-
-    print(f"> 重みの統計: min={weights.min():.3f}, max={weights.max():.3f}, mean={weights.mean():.3f}")
-
-    # --- Step 3c: Stage 2 本番モデルの学習 ---
-    print("\n3c. [Stage 2] 重み付き LambdaRank モデルを学習します...")
+    # --- Step 3: LambdaRank モデルの学習 ---
+    print("\n3. LambdaRank モデルを学習します...")
 
     model = lgb.LGBMRanker(
         objective="lambdarank",
@@ -122,7 +69,6 @@ def main():
         X_train,
         y_train,
         group=group_train,
-        sample_weight=weights,
         eval_set=[(X_val, y_val)],
         eval_group=[group_val],
         eval_at=[3, 5],
