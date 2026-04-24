@@ -1,7 +1,14 @@
 import pandas as pd
 import numpy as np
 
-from analytical_aI.data.feature_engineering import calculate_jockey_win_rate, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff, calculate_prev_rank_ratio
+from analytical_aI.data.feature_engineering import (
+    calculate_jockey_win_rate,
+    calculate_last3f_zscore,
+    calculate_historical_pci,
+    calculate_jockey_track_win_rate,
+    calculate_prev_time_diff,
+    add_advanced_features,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -13,25 +20,37 @@ CAT_COLS = ["sex", "track_type", "track_condition", "weather", "direction"]
 # 学習に使う特徴量（winOdds / popularity は除外 ― バックテスト時のみ使用）
 # ---------------------------------------------------------------------------
 FEATURE_COLS = [
+    # --- ベース特徴量 ---
     "age",
     "sex",               # カテゴリ
     "weight_carried",    # 斤量
     "horse_weight",      # 馬体重
     "weight_change",     # 体重増減
-    "jockey_win_rate",   # 騎手勝率（集計特徴量）
+    "jockey_win_rate",   # 騎手勝率（全キャリア累積、旧実装）
     "track_type",        # 芝 / ダ（カテゴリ）
     "distance",          # 距離
     "track_condition",   # 馬場状態（カテゴリ）
     "weather",           # 天候（カテゴリ）
     "direction",         # コース方向（カテゴリ）
-    "last_3f_zscore",   # 上がり3F 過去3走Z-score平均
-    "load_ratio",       # 斤量 / 馬体重（体重比負担率）
-    "field_size",       # 出走頭数
-    "avg_odds",         # レース内単勝平均オッズ（混戦度）
-    "jockey_track_win_rate",  # 騎手×コース種別（芝/ダ）の過去勝率
-    "prev_time_diff",         # 前走の1着馬とのタイム差（秒）
-    "prev_rank_ratio",        # 前走の着順割合（rank / field_size、小さいほど優秀）
-    "jockey_win_rate_relative",  # 騎手勝率のレース内偏差
+    "last_3f_zscore",    # 上がり3F 過去3走Z-score平均
+    "load_ratio",        # 斤量 / 馬体重（体重比負担率）
+    "field_size",        # 出走頭数
+    "avg_odds",          # レース内単勝平均オッズ（混戦度）
+    "jockey_track_win_rate",      # 騎手×コース種別（芝/ダ）の過去勝率
+    "prev_time_diff",             # 前走の1着馬とのタイム差（秒）
+    "prev_rank_ratio",            # 前走の着順割合（NaN版: 初出走は欠損）
+    "jockey_win_rate_relative",   # 騎手勝率のレース内偏差（旧実装ベース）
+    # --- Tier 1: 物理的・直接的ファクト ---
+    "days_since_last_race",       # ローテーション（日数）
+    "distance_diff",              # 距離変化（延長+・短縮-）
+    # --- Tier 2: 累積・履歴統計（ベイズ平滑化） ---
+    "jockey_win_rate_expanding",  # 騎手の全キャリア累積勝率（ベイズ平滑化）
+    "horse_track_win_rate",       # 馬×芝/ダ 累積勝率（ベイズ平滑化）
+    "prev_prize_median_5",        # 近5走の獲得賞金中央値
+    # --- Tier 3: レース内相対化 ---
+    "weight_carried_ratio_relative",      # 斤量体重比のレース内偏差
+    "days_since_last_race_relative",      # ローテーションのレース内偏差
+    "jockey_win_rate_expanding_relative", # 騎手勝率（ベイズ）のレース内偏差
 ]
 
 
@@ -107,10 +126,10 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
     # --- . 前走の1着馬とのタイム差を付与 ---
     df["prev_time_diff"] = calculate_prev_time_diff(df)
 
-    # --- . 前走の着順割合を付与（field_size の後に計算） ---
-    df["prev_rank_ratio"] = calculate_prev_rank_ratio(df)
+    # --- . Tier1/2/3 高度特徴量を一括付与（prev_rank_ratio の NaN版も内包） ---
+    df = add_advanced_features(df)
 
-    # --- . 相対特徴量: 騎手勝率のレース内偏差 ---
+    # --- . 相対特徴量: 騎手勝率のレース内偏差（旧実装 jockey_win_rate ベース） ---
     df["jockey_win_rate_relative"] = (
         df["jockey_win_rate"] - df.groupby("race_id")["jockey_win_rate"].transform("mean")
     )

@@ -104,6 +104,120 @@ def calculate_jockey_track_win_rate(df: pd.DataFrame) -> pd.Series:
     return pd.Series(result, index=work_sorted.index).reindex(work.index)
 
 
+def add_advanced_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Tier1/2/3 高度特徴量を追加する。
+    - shift(1) によりデータリーク（未来情報の混入）を防止。
+    - Tier1 の欠損（初出走など）は np.nan のまま返す（LightGBM 側で処理）。
+    - Tier2 はベイズ平滑化（C=3.0）でノイズを除去。
+    - Tier3 はレース内相対化（自身の値 - レース内平均）。
+    """
+    df = df.copy()
+    C = 3.0
+
+    # ---- 共通前処理 ----
+    for col in ["rank", "field_size", "weight_carried", "horse_weight", "prize"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    dist_col = next((c for c in ["course_len", "distance"] if c in df.columns), None)
+    if dist_col:
+        df[dist_col] = pd.to_numeric(df[dist_col], errors="coerce")
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+    # Tier2 用: is_win と global_mean（定数なのでリーク無し）
+    if "rank" in df.columns:
+        df["__is_win"] = np.where(df["rank"].notna(), (df["rank"] == 1).astype(float), np.nan)
+        global_mean = df["__is_win"].mean()
+    else:
+        global_mean = 0.05
+
+    # ================================================================
+    # Tier 1: 物理的・直接的ファクト
+    # ================================================================
+
+    # 1. days_since_last_race
+    if "date" in df.columns and "horse_id" in df.columns:
+        work = df[["horse_id", "race_id", "date"]].sort_values(["horse_id", "race_id"])
+        prev_date = work.groupby("horse_id")["date"].transform(lambda x: x.shift(1))
+        df["days_since_last_race"] = (work["date"] - prev_date).dt.days.astype(float).reindex(df.index)
+
+    # 2. distance_diff
+    if dist_col and "horse_id" in df.columns:
+        work = df[["horse_id", "race_id", dist_col]].sort_values(["horse_id", "race_id"])
+        prev_dist = work.groupby("horse_id")[dist_col].transform(lambda x: x.shift(1))
+        df["distance_diff"] = (work[dist_col] - prev_dist).reindex(df.index)
+
+    # 3. weight_carried_ratio（Tier3 の相対化のベースとしても使用）
+    if "weight_carried" in df.columns and "horse_weight" in df.columns:
+        df["weight_carried_ratio"] = df["weight_carried"] / df["horse_weight"]
+
+    # 4. prev_rank_ratio（欠損は np.nan のまま、0.5 補完しない）
+    if all(c in df.columns for c in ["rank", "field_size", "horse_id"]):
+        work = df[["horse_id", "race_id", "rank", "field_size"]].sort_values(["horse_id", "race_id"]).copy()
+        work["__rank_ratio"] = work["rank"] / work["field_size"]
+        df["prev_rank_ratio"] = (
+            work.groupby("horse_id")["__rank_ratio"]
+            .transform(lambda x: x.shift(1))
+            .reindex(df.index)
+        )
+
+    # ================================================================
+    # Tier 2: 累積・履歴統計（ベイズ平滑化）
+    # ================================================================
+
+    jockey_col = next((c for c in ["jockey_id", "jockey"] if c in df.columns), None)
+
+    # 5. jockey_win_rate_expanding（騎手の全キャリア累積勝率・ベイズ平滑化）
+    if jockey_col and "__is_win" in df.columns:
+        work = df[[jockey_col, "race_id", "__is_win"]].sort_values([jockey_col, "race_id"])
+        rides = work.groupby(jockey_col).cumcount()          # 当該レース前の騎乗数
+        wins = work.groupby(jockey_col)["__is_win"].transform(
+            lambda x: x.shift(1).fillna(0).cumsum()         # 当該レース前の累積勝利数
+        )
+        df["jockey_win_rate_expanding"] = (
+            ((wins + C * global_mean) / (rides + C)).reindex(df.index)
+        )
+
+    # 6. horse_track_win_rate（馬×芝/ダ 累積勝率・ベイズ平滑化）
+    if all(c in df.columns for c in ["horse_id", "track_type"]) and "__is_win" in df.columns:
+        work = df[["horse_id", "track_type", "race_id", "__is_win"]].sort_values(
+            ["horse_id", "track_type", "race_id"]
+        )
+        rides = work.groupby(["horse_id", "track_type"]).cumcount()
+        wins = work.groupby(["horse_id", "track_type"])["__is_win"].transform(
+            lambda x: x.shift(1).fillna(0).cumsum()
+        )
+        df["horse_track_win_rate"] = (
+            ((wins + C * global_mean) / (rides + C)).reindex(df.index)
+        )
+
+    # 7. prev_prize_median_5（近5走の獲得賞金中央値）
+    if "prize" in df.columns and "horse_id" in df.columns:
+        work = df[["horse_id", "race_id", "prize"]].sort_values(["horse_id", "race_id"])
+        df["prev_prize_median_5"] = (
+            work.groupby("horse_id")["prize"]
+            .transform(lambda x: x.shift(1).rolling(window=5, min_periods=1).median())
+            .reindex(df.index)
+        )
+
+    # ================================================================
+    # Tier 3: レース内相対化（LambdaRank 用 偏差特徴量）
+    # ================================================================
+    for src_col, new_col in [
+        ("weight_carried_ratio", "weight_carried_ratio_relative"),
+        ("days_since_last_race", "days_since_last_race_relative"),
+        ("jockey_win_rate_expanding", "jockey_win_rate_expanding_relative"),
+    ]:
+        if src_col in df.columns and "race_id" in df.columns:
+            df[new_col] = df[src_col] - df.groupby("race_id")[src_col].transform("mean")
+
+    df.drop(columns=["__is_win"], errors="ignore", inplace=True)
+    return df
+
+
 def calculate_historical_pci(df: pd.DataFrame) -> pd.DataFrame:
     """馬の過去レースにおける自身のPCIと、レース全体PCI(RPCI)の近走平均を返す。"""
     work = df[["horse_id", "race_id", "time", "last_3f", "distance"]].copy()

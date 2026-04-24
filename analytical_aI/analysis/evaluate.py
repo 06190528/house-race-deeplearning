@@ -115,6 +115,7 @@ def run_trial(trial_idx, train_df, unseen_df, available_features, seed):
         'roi':   roi,
         'participation': participation,
         'best_params': study.best_params,
+        'importances': model.feature_importances_.tolist(),
     }
 
 
@@ -144,6 +145,13 @@ def main(n_trials=20, base_seed=42):
     print(f"平均ROI : {np.mean(rois):.2f}% ± {np.std(rois):.2f}%")
     print(f"最小/最大: {np.min(rois):.2f}% / {np.max(rois):.2f}%")
     print(f"{'='*55}")
+
+    # --- 特徴量重要度（全 trial の Gain 平均） ---
+    print("\n--- 特徴量重要度（Gain 平均・上位20件）---")
+    mean_imp = np.mean([r['importances'] for r in results], axis=0)
+    df_imp = pd.DataFrame({'feature': available_features, 'importance': mean_imp})
+    df_imp = df_imp.sort_values('importance', ascending=False).reset_index(drop=True)
+    print(df_imp.to_string())
 
 
 if __name__ == "__main__":
