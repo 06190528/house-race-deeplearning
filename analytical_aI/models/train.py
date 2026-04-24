@@ -10,10 +10,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from analytical_aI.config.index import TRAINING_DATA_DIR, MODELS_DIR
-from analytical_aI.data.loader import load_and_preprocess_data
+from analytical_aI.config.index import DATA_PATH, MODELS_DIR, TRAIN_RATIO
+from analytical_aI.data.loader import load_and_split_data
 from analytical_aI.data.preprocessor import FEATURE_COLS, CAT_COLS
-from analytical_aI.data.preprocessor import partition_raw_data
 
 
 def softmax(x):
@@ -40,18 +39,14 @@ def compute_ev_weights(train_df: pd.DataFrame, scores: np.ndarray,
 
 
 def main():
-    # --- Step 0: 生データの分割 ---
-    print("0. 生データを「学習用」と「未知データ用」に分割します...")
-    partition_raw_data(training_ratio=0.8)
-
-    # --- Step 1: データの読み込みと前処理 ---
-    print("\n1. 学習用データの読み込みと前処理を開始します...")
-    df, _ = load_and_preprocess_data(TRAINING_DATA_DIR)
+    # --- Step 1: データの読み込み・前処理・train/unseen分割 ---
+    print("1. データの読み込みと前処理を開始します...")
+    df, _ = load_and_split_data(DATA_PATH, TRAIN_RATIO)
 
     if df.empty:
         print("データが読み込めませんでした。処理を終了します。")
         return
-    print(f"> 前処理完了。データ数: {len(df)} 件 / {df['race_id'].nunique()} レース")
+    print(f"> 学習用データ: {len(df)} 件 / {df['race_id'].nunique()} レース")
 
     # --- Step 2: 時系列分割（レース単位・古い順に 80% Train / 20% Val）---
     print("\n2. 時系列分割を行います（race_id 昇順で 80/20）...")

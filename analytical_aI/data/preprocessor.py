@@ -1,12 +1,6 @@
-import os
-import glob
-import random
-import shutil
-
 import pandas as pd
 import numpy as np
 
-from analytical_aI.config.index import DATA_PATH, UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR
 from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff, calculate_prev_rank_ratio
 
 
@@ -57,32 +51,20 @@ def _get_relevance_score(rank) -> int:
         return 0
 
 
-def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
+def preprocess_data(raw_data: list[dict], jockey_win_rates: dict | None = None) -> tuple[pd.DataFrame, list[int]]:
     """
     生のレースデータを LambdaRank 学習用 DataFrame に変換する。
 
-    処理内容:
-        1. DataFrame 化
-        2. 騎手勝率の付与
-        3. 数値型への変換
-        4. sex の数値エンコード（牡=1 / 牝=0 / セ=2）
-        5. 新フィールド: label（relevance score）
-        6. カテゴリ型へのキャスト
-        7. 欠損値処理
-        8. race_id でソート（LambdaRank の必須条件）
-        9. group 配列の生成
-
-    Returns:
-        tuple[pd.DataFrame, list[int]]:
-            - 前処理済み DataFrame
-            - LambdaRank 用 group 配列（レースごとの頭数リスト）
+    jockey_win_rates を外部から渡すことでデータリークを防ぐ（train側で計算した
+    勝率をunseen側にも適用する用途）。省略時はraw_data全体から計算する。
     """
     if not raw_data:
         return pd.DataFrame(), []
 
     # --- 1. 騎手勝率を事前計算 ---
-    print("Calculating jockey win rates...")
-    jockey_win_rates = calculate_jockey_win_rates(raw_data)
+    if jockey_win_rates is None:
+        print("Calculating jockey win rates...")
+        jockey_win_rates = calculate_jockey_win_rates(raw_data)
 
     # --- 2. DataFrame 化 ---
     df = pd.DataFrame(raw_data)
@@ -157,33 +139,3 @@ def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
     return df, group_data
 
 
-def partition_raw_data(training_ratio: float = 0.8) -> None:
-    """
-    元の生データセットを「学習用」と「未知データ用」に分割し、
-    それぞれの専用フォルダにファイルをコピーする。
-    """
-    print(f"\n--- データを学習用と未知用に分割します ---")
-
-    for dir_path in [UNTOUCHED_DATA_DIR, TRAINING_DATA_DIR]:
-        if os.path.exists(dir_path):
-            shutil.rmtree(dir_path)
-        os.makedirs(dir_path)
-
-    all_files = glob.glob(os.path.join(DATA_PATH, "*.json"))
-    all_files = sorted(all_files)
-
-    split_index = int(len(all_files) * training_ratio)
-    training_files = all_files[:split_index]
-    untouched_files = all_files[split_index:]
-
-    print("学習用データをコピー中...")
-    for f in training_files:
-        shutil.copy(f, TRAINING_DATA_DIR)
-
-    print("未知データをコピー中...")
-    for f in untouched_files:
-        shutil.copy(f, UNTOUCHED_DATA_DIR)
-
-    print(f"学習用データ: {len(training_files)}レース分を '{TRAINING_DATA_DIR.name}' にコピーしました。")
-    print(f"未知データ: {len(untouched_files)}レース分を '{UNTOUCHED_DATA_DIR.name}' にコピーしました。")
-    print("元のデータフォルダは変更されていません。")
