@@ -96,13 +96,11 @@ def main():
 
     def objective(trial):
         # 探索するパラメータの範囲を定義
-        bet_threshold = trial.suggest_float("bet_threshold", 1.0, 2.0)
-        win_rate_threshold = trial.suggest_float("win_rate_threshold", 0.01, 0.30)
-        
+        bet_threshold = trial.suggest_float("bet_threshold", 1.1, 2.0)
+        win_rate_threshold = trial.suggest_float("win_rate_threshold", 0.07, 0.20)
+
         roi, bet_races, _, _, _ = calculate_roi(df_optuna, bet_threshold, win_rate_threshold)
-        
-        # 例外処理: 賭けるレースが極端に少ない（例えば全体の5%未満）場合は、
-        # まぐれ当たりの過学習を防ぐためにROIをペナルティとして0にする
+
         if bet_races < (total_races * 0.25):
             return 0.0
             

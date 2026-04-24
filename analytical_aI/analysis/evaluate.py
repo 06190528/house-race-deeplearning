@@ -92,14 +92,14 @@ def run_trial(trial_idx, train_df, unseen_df, available_features, seed):
     study   = optuna.create_study(direction="maximize", sampler=sampler)
 
     def objective(trial):
-        bet_threshold      = trial.suggest_float("bet_threshold", 1.0, 2.0)
-        win_rate_threshold = trial.suggest_float("win_rate_threshold", 0.01, 0.30)
+        bet_threshold      = trial.suggest_float("bet_threshold", 1.1, 2.0)
+        win_rate_threshold = trial.suggest_float("win_rate_threshold", 0.07, 0.20)
         roi, bet_races = calculate_roi(df_optuna, bet_threshold, win_rate_threshold)
         if bet_races < total_races * 0.25:
             return 0.0
         return roi
 
-    study.optimize(objective, n_trials=200)
+    study.optimize(objective, n_trials=500)
 
     roi, bet_races = calculate_roi(
         df_test,
