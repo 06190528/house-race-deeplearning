@@ -3,6 +3,7 @@ import json
 import pandas as pd
 
 from .preprocessor import preprocess_data
+from .feature_engineering import calculate_jockey_win_rates
 
 
 def load_and_process_race_data(data_path: str) -> list[dict]:
@@ -60,14 +61,7 @@ def load_and_process_race_data(data_path: str) -> list[dict]:
 
 
 def load_and_preprocess_data(data_path: str) -> tuple[pd.DataFrame, list[int]]:
-    """
-    データ読み込みから前処理まで一括で行う。
-
-    Returns:
-        tuple[pd.DataFrame, list[int]]:
-            - 前処理済みDataFrame
-            - LambdaRank用 group 配列（レースごとの頭数リスト）
-    """
+    """データ読み込みから前処理まで一括で行う。"""
     raw_data = load_and_process_race_data(data_path)
 
     if not raw_data:
@@ -76,3 +70,35 @@ def load_and_preprocess_data(data_path: str) -> tuple[pd.DataFrame, list[int]]:
 
     df, group_data = preprocess_data(raw_data)
     return df, group_data
+
+
+def load_and_split_data(data_path: str, train_ratio: float = 0.8) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    全データをraw_dataレベルでtrain/unseenに分割したあと前処理する。
+    騎手勝率はtrain側のデータのみから計算し、unseen側にも同じ値を適用することで
+    データリークを防ぐ。
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: (学習用df, 未知データdf)
+    """
+    raw_data = load_and_process_race_data(data_path)
+    if not raw_data:
+        return pd.DataFrame(), pd.DataFrame()
+
+    # race_idでsplitする（raw_dataレベルで分割してからpreprocess）
+    unique_races = sorted(set(h['race_id'] for h in raw_data))
+    split_idx = int(len(unique_races) * train_ratio)
+    train_race_ids = set(unique_races[:split_idx])
+
+    train_raw  = [h for h in raw_data if h['race_id'] in train_race_ids]
+    unseen_raw = [h for h in raw_data if h['race_id'] not in train_race_ids]
+
+    # 騎手勝率はtrain側のみで計算し、unseenにも同じレートを適用（リーク防止）
+    print("Calculating jockey win rates from training data...")
+    jockey_win_rates = calculate_jockey_win_rates(train_raw)
+
+    train_df,  _ = preprocess_data(train_raw,  jockey_win_rates=jockey_win_rates)
+    unseen_df, _ = preprocess_data(unseen_raw, jockey_win_rates=jockey_win_rates)
+
+    print(f"> 学習用: {train_df['race_id'].nunique()} レース / 未知データ: {unseen_df['race_id'].nunique()} レース")
+    return train_df, unseen_df

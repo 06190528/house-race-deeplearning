@@ -11,8 +11,8 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # --- モジュールをインポート ---
-from analytical_aI.config.index import MODELS_DIR, UNTOUCHED_DATA_DIR
-from analytical_aI.data.loader import load_and_preprocess_data
+from analytical_aI.config.index import DATA_PATH, MODELS_DIR, TRAIN_RATIO
+from analytical_aI.data.loader import load_and_split_data
 from analytical_aI.data.preprocessor import FEATURE_COLS
 
 # ログを少し静かにする（Optunaの出力が多すぎるのを防ぐ）
@@ -61,7 +61,7 @@ def main():
         print(f"エラー: モデルファイルが見つかりません。")
         return
 
-    df_untouched, _ = load_and_preprocess_data(UNTOUCHED_DATA_DIR)
+    _, df_untouched = load_and_split_data(DATA_PATH, TRAIN_RATIO)
     if df_untouched.empty:
         return
 

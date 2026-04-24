@@ -10,8 +10,8 @@ if project_root not in sys.path:
 
 # --- モジュールをインポート ---
 # ▼▼▼ 変更点①: configと新しいローダー関数をインポート ▼▼▼
-from analytical_aI.config.index import MODELS_DIR, UNTOUCHED_DATA_DIR
-from analytical_aI.data.loader import load_and_preprocess_data
+from analytical_aI.config.index import DATA_PATH, MODELS_DIR, TRAIN_RATIO
+from analytical_aI.data.loader import load_and_split_data
 
 
 # ▼▼▼ 変更点②: 引数をなくす ▼▼▼
@@ -29,8 +29,8 @@ def predict_on_untouched_data() -> pd.DataFrame:
         return pd.DataFrame()
 
     # ▼▼▼ 変更点③: configのパスを使い、新しいローダー関数でデータを一括取得 ▼▼▼
-    print(f"2. 未知データ ('{UNTOUCHED_DATA_DIR.name}') を読み込み、前処理します...")
-    df_new = load_and_preprocess_data(UNTOUCHED_DATA_DIR)
+    print("2. 未知データを読み込み、前処理します...")
+    _, df_new = load_and_split_data(DATA_PATH, TRAIN_RATIO)
 
     if df_new.empty:
         print("予測対象のデータがありません。")
