@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from analytical_aI.data.feature_engineering import calculate_jockey_win_rates, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff, calculate_prev_rank_ratio
+from analytical_aI.data.feature_engineering import calculate_jockey_win_rate, calculate_last3f_zscore, calculate_historical_pci, calculate_jockey_track_win_rate, calculate_prev_time_diff, calculate_prev_rank_ratio
 
 
 # ---------------------------------------------------------------------------
@@ -51,20 +51,10 @@ def _get_relevance_score(rank) -> int:
         return 0
 
 
-def preprocess_data(raw_data: list[dict], jockey_win_rates: dict | None = None) -> tuple[pd.DataFrame, list[int]]:
-    """
-    生のレースデータを LambdaRank 学習用 DataFrame に変換する。
-
-    jockey_win_rates を外部から渡すことでデータリークを防ぐ（train側で計算した
-    勝率をunseen側にも適用する用途）。省略時はraw_data全体から計算する。
-    """
+def preprocess_data(raw_data: list[dict]) -> tuple[pd.DataFrame, list[int]]:
+    """生のレースデータを LambdaRank 学習用 DataFrame に変換する。"""
     if not raw_data:
         return pd.DataFrame(), []
-
-    # --- 1. 騎手勝率を事前計算 ---
-    if jockey_win_rates is None:
-        print("Calculating jockey win rates...")
-        jockey_win_rates = calculate_jockey_win_rates(raw_data)
 
     # --- 2. DataFrame 化 ---
     df = pd.DataFrame(raw_data)
@@ -82,9 +72,8 @@ def preprocess_data(raw_data: list[dict], jockey_win_rates: dict | None = None) 
     # --- 4. sex のエンコード（カテゴリ変数として扱うため文字列を保持） ---
     # LightGBM category 型で直接扱う → 日本語文字列のまま category にキャスト
 
-    # --- 5. 騎手勝率を付与 ---
-    jockey_col = "jockey_id" if "jockey_id" in df.columns else "jockey"
-    df["jockey_win_rate"] = df[jockey_col].map(jockey_win_rates).fillna(0.0)
+    # --- 5. 騎手勝率を付与（直近50走ローリング、shift(1)でリーク防止）---
+    df["jockey_win_rate"] = calculate_jockey_win_rate(df)
 
     # --- 6. 目的変数: relevance score（LambdaRank 用） ---
     df["label"] = df["rank"].apply(_get_relevance_score)
